@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simple JSON Viewer with Explanations</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .container {
+      display: flex;
+      gap: 40px;
+      position: relative;
+    }
+    .json-container {
+      flex: 1;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      padding: 15px;
+      background-color: #f8f9fa;
+      position: relative;
+      white-space: pre;
+      font-family: monospace;
+      line-height: 1.5;
+    }
+    .explanations-container {
+      flex: 1;
+      position: relative;
+    }
+    .explanation {
+      border: 1px solid #4a86e8;
+      border-radius: 5px;
+      padding: 10px;
+      margin-bottom: 15px;
+      background-color: #e8f0fe;
+      position: relative;
+    }
+    .property-name {
+      font-weight: bold;
+      display: block;
+      margin-bottom: 5px;
+      color: #1a73e8;
+    }
+    .line {
+      position: absolute;
+      border-top: 2px dashed #4a86e8;
+      pointer-events: none;
+    }
+    .title {
+      font-size: 24px;
+      margin-bottom: 20px;
+      color: #333;
+    }
+    .json-property {
+      position: relative;
+      padding: 2px 0;
+    }
+    .highlighted {
+      background-color: #ffff99;
+    }
+    .controls {
+      margin-bottom: 20px;
+    }
+    textarea {
+      width: 100%;
+      height: 150px;
+      margin-bottom: 10px;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <h1 class="title">JSON Viewer with Explanations</h1>
+  
+  <div class="controls">
+    <textarea id="jsonInput">{
+  "name": "Product API",
+  "version": "1.0.0",
+  "endpoints": {
+    "getProduct": {
+      "path": "/products/:id",
+      "method": "GET",
+      "params": {
+        "id": "string"
+      },
+      "responses": {
+        "200": "Success",
+        "404": "Product not found"
+      }
+    },
+    "createProduct": {
+      "path": "/products",
+      "method": "POST",
+      "auth": true
+    }
+  }
+}</textarea>
+    <button id="updateButton">Update View</button>
+  </div>
+  
+  <div class="container" id="mainContainer">
+    <div class="json-container" id="jsonContainer"></div>
+    <div class="explanations-container" id="explanationsContainer"></div>
+  </div>
+
+  <script>
+    // Sample explanations
+    const defaultExplanations = {
+      "name": "The API name used for identification",
+      "version": "Current API version following semantic versioning",
+      "endpoints.getProduct.path": "URL pattern to access this endpoint",
+      "endpoints.getProduct.method": "HTTP method used for this endpoint",
+      "endpoints.getProduct.params.id": "Parameter type required for this endpoint",
+      "endpoints.getProduct.responses.200": "Successful response code and message",
+      "endpoints.getProduct.responses.404": "Error response when product is not found",
+      "endpoints.createProduct.path": "URL for creating new products",
+      "endpoints.createProduct.method": "HTTP POST method for creating resources",
+      "endpoints.createProduct.auth": "Authentication required for this endpoint"
+    };
+
+    // Function to format JSON with line numbers and IDs
+    function formatJSON(json) {
+      const obj = JSON.parse(json);
+      const formattedLines = [];
+      let lineNumber = 0;
+      
+      function processObject(obj, path = "", indent = 0) {
+        const indentStr = " ".repeat(indent);
+        
+        if (typeof obj === "object" && obj !== null) {
+          const isArray = Array.isArray(obj);
+          const openBracket = isArray ? "[" : "{";
+          const closeBracket = isArray ? "]" : "}";
+          
+          formattedLines.push(`<div class="json-property" id="line-${lineNumber}" data-path="${path}">${indentStr}${openBracket}</div>`);
+          lineNumber++;
+          
+          const entries = Object.entries(obj);
+          entries.forEach(([key, value], index) => {
+            const currentPath = path ? `${path}.${key}` : key;
+            const comma = index < entries.length - 1 ? "," : "";
+            
+            if (typeof value === "object" && value !== null) {
+              formattedLines.push(`<div class="json-property" id="line-${lineNumber}" data-path="${currentPath}">${indentStr}  "${key}": ${Array.isArray(value) ? "[" : "{"}</div>`);
+              lineNumber++;
+              
+              processObject(value, currentPath, indent + 4);
+              
+              formattedLines.push(`<div class="json-property" id="line-${lineNumber}" data-path="${currentPath}">${indentStr}  ${Array.isArray(value) ? "]" : "}"}${comma}</div>`);
+              lineNumber++;
+            } else {
+              let displayValue = typeof value === "string" ? `"${value}"` : value;
+              formattedLines.push(`<div class="json-property" id="line-${lineNumber}" data-path="${currentPath}">${indentStr}  "${key}": ${displayValue}${comma}</div>`);
+              lineNumber++;
+            }
+          });
+          
+          formattedLines.push(`<div class="json-property" id="line-${lineNumber}" data-path="${path}">${indentStr}${closeBracket}</div>`);
+          lineNumber++;
+        }
+      }
+      
+      processObject(obj);
+      return formattedLines.join("\n");
+    }
+
+    // Function to create explanations
+    function createExplanations(json) {
+      const explanationsContainer = document.getElementById('explanationsContainer');
+      explanationsContainer.innerHTML = '';
+      
+      // Extract paths from the JSON
+      const paths = extractPaths(JSON.parse(json));
+      
+      // Create explanation boxes for paths that have explanations
+      paths.forEach(path => {
+        if (defaultExplanations[path]) {
+          const explanationDiv = document.createElement('div');
+          explanationDiv.className = 'explanation';
+          explanationDiv.id = `explanation-${path}`;
+          explanationDiv.dataset.path = path;
+          
+          const propertyName = document.createElement('span');
+          propertyName.className = 'property-name';
+          propertyName.textContent = path;
+          
+          explanationDiv.appendChild(propertyName);
+          explanationDiv.appendChild(document.createTextNode(defaultExplanations[path]));
+          
+          explanationsContainer.appendChild(explanationDiv);
+        }
+      });
+    }
+
+    // Function to extract all paths from JSON
+    function extractPaths(obj, prefix = "") {
+      let paths = [];
+      
+      for (const key in obj) {
+        const currentPath = prefix ? `${prefix}.${key}` : key;
+        paths.push(currentPath);
+        
+        if (typeof obj[key] === "object" && obj[key] !== null) {
+          paths = paths.concat(extractPaths(obj[key], currentPath));
+        }
+      }
+      
+      return paths;
+    }
+
+    // Function to draw connecting lines
+    function drawLines() {
+      // Remove existing lines
+      document.querySelectorAll('.line').forEach(line => line.remove());
+      
+      // Get all explanations
+      const explanations = document.querySelectorAll('.explanation');
+      
+      explanations.forEach(explanation => {
+        const path = explanation.dataset.path;
+        const jsonElement = document.querySelector(`.json-property[data-path="${path}"]`);
+        
+        if (jsonElement) {
+          const jsonRect = jsonElement.getBoundingClientRect();
+          const explRect = explanation.getBoundingClientRect();
+          const containerRect = document.getElementById('mainContainer').getBoundingClientRect();
+          
+          // Create line
+          const line = document.createElement('div');
+          line.className = 'line';
+          
+          // Calculate positions relative to the container
+          const startX = jsonRect.right - containerRect.left;
+          const startY = jsonRect.top + (jsonRect.height / 2) - containerRect.top;
+          const endX = explRect.left - containerRect.left;
+          const endY = explRect.top + (explRect.height / 2) - containerRect.top;
+          
+          // Set line properties
+          const length = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
+          const angle = Math.atan2(endY - startY, endX - startX) * 180 / Math.PI;
+          
+          line.style.width = `${length}px`;
+          line.style.left = `${startX}px`;
+          line.style.top = `${startY}px`;
+          line.style.transform = `rotate(${angle}deg)`;
+          line.style.transformOrigin = '0 0';
+          
+          document.getElementById('mainContainer').appendChild(line);
+          
+          // Add hover effect
+          jsonElement.addEventListener('mouseover', () => {
+            jsonElement.classList.add('highlighted');
+            explanation.classList.add('highlighted');
+            line.style.borderTopColor = '#ff6b6b';
+            line.style.borderTopWidth = '3px';
+          });
+          
+          jsonElement.addEventListener('mouseout', () => {
+            jsonElement.classList.remove('highlighted');
+            explanation.classList.remove('highlighted');
+            line.style.borderTopColor = '#4a86e8';
+            line.style.borderTopWidth = '2px';
+          });
+          
+          explanation.addEventListener('mouseover', () => {
+            jsonElement.classList.add('highlighted');
+            explanation.classList.add('highlighted');
+            line.style.borderTopColor = '#ff6b6b';
+            line.style.borderTopWidth = '3px';
+          });
+          
+          explanation.addEventListener('mouseout', () => {
+            jsonElement.classList.remove('highlighted');
+            explanation.classList.remove('highlighted');
+            line.style.borderTopColor = '#4a86e8';
+            line.style.borderTopWidth = '2px';
+          });
+        }
+      });
+    }
+
+    // Function to update the view
+    function updateView() {
+      const jsonInput = document.getElementById('jsonInput').value;
+      try {
+        // Format and display JSON
+        document.getElementById('jsonContainer').innerHTML = formatJSON(jsonInput);
+        
+        // Create explanations
+        createExplanations(jsonInput);
+        
+        // Draw connecting lines after a small delay to ensure DOM is updated
+        setTimeout(drawLines, 100);
+      } catch (error) {
+        alert('Invalid JSON: ' + error.message);
+      }
+    }
+
+    // Initialize
+    document.getElementById('updateButton').addEventListener('click', updateView);
+    window.addEventListener('resize', drawLines);
+    updateView();
+  </script>
+</body>
+</html>
