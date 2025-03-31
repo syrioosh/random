@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive JSON Viewer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+        }
+        .json-container {
+            background: #f4f4f4;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        .json-key {
+            color: blue;
+            cursor: pointer;
+            position: relative;
+        }
+        .tooltip {
+            visibility: hidden;
+            background-color: black;
+            color: white;
+            text-align: center;
+            padding: 5px;
+            border-radius: 5px;
+            position: absolute;
+            z-index: 1;
+            top: -25px;
+            left: 50%;
+            transform: translateX(-50%);
+            white-space: nowrap;
+            font-size: 12px;
+        }
+        .json-key:hover .tooltip {
+            visibility: visible;
+        }
+    </style>
+</head>
+<body>
+
+<h3>Interactive JSON Viewer</h3>
+<div class="json-container" id="jsonViewer"></div>
+
+<script>
+    const jsonData = {
+        "id": 123,
+        "name": "John Doe",
+        "email": "john.doe@example.com",
+        "age": 30
+    };
+
+    const descriptions = {
+        "id": "Unique identifier for the user",
+        "name": "User full name",
+        "email": "User email address",
+        "age": "User's age in years"
+    };
+
+    function generateJsonView(json, descriptions) {
+        let jsonString = JSON.stringify(json, null, 2);
+        Object.keys(json).forEach(key => {
+            jsonString = jsonString.replace(
+                `"${key}"`,
+                `<span class="json-key">${key}<span class="tooltip">${descriptions[key] || "No description available"}</span></span>`
+            );
+        });
+        return jsonString;
+    }
+
+    document.getElementById('jsonViewer').innerHTML = generateJsonView(jsonData, descriptions);
+</script>
+
+</body>
+</html>
