@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Simple JSON Viewer with Explanations</title>
+  <title>JSON Viewer with Left and Right Explanations</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -13,11 +13,11 @@
     }
     .container {
       display: flex;
-      gap: 40px;
+      gap: 30px;
       position: relative;
     }
     .json-container {
-      flex: 1;
+      flex: 1.5;
       border: 1px solid #ccc;
       border-radius: 5px;
       padding: 15px;
@@ -26,8 +26,9 @@
       white-space: pre;
       font-family: monospace;
       line-height: 1.5;
+      margin: 0 auto;
     }
-    .explanations-container {
+    .explanations-left-container, .explanations-right-container {
       flex: 1;
       position: relative;
     }
@@ -54,10 +55,15 @@
       font-size: 24px;
       margin-bottom: 20px;
       color: #333;
+      text-align: center;
     }
     .json-property {
       position: relative;
-      padding: 2px 0;
+      padding: 0;
+      margin-bottom: 10px; /* This sets the line spacing to 10px */
+    }
+    .json-property:last-child {
+      margin-bottom: 0; /* Remove margin from the last property */
     }
     .highlighted {
       background-color: #ffff99;
@@ -74,7 +80,7 @@
   </style>
 </head>
 <body>
-  <h1 class="title">JSON Viewer with Explanations</h1>
+  <h1 class="title">JSON Viewer with Left and Right Explanations</h1>
   
   <div class="controls">
     <textarea id="jsonInput">{
@@ -103,8 +109,9 @@
   </div>
   
   <div class="container" id="mainContainer">
+    <div class="explanations-left-container" id="explanationsLeftContainer"></div>
     <div class="json-container" id="jsonContainer"></div>
-    <div class="explanations-container" id="explanationsContainer"></div>
+    <div class="explanations-right-container" id="explanationsRightContainer"></div>
   </div>
 
   <script>
@@ -170,18 +177,20 @@
 
     // Function to create explanations
     function createExplanations(json) {
-      const explanationsContainer = document.getElementById('explanationsContainer');
-      explanationsContainer.innerHTML = '';
+      const leftContainer = document.getElementById('explanationsLeftContainer');
+      const rightContainer = document.getElementById('explanationsRightContainer');
+      leftContainer.innerHTML = '';
+      rightContainer.innerHTML = '';
       
       // Extract paths from the JSON
       const paths = extractPaths(JSON.parse(json));
       
       // Create explanation boxes for paths that have explanations
-      paths.forEach(path => {
+      paths.forEach((path, index) => {
         if (defaultExplanations[path]) {
           const explanationDiv = document.createElement('div');
           explanationDiv.className = 'explanation';
-          explanationDiv.id = `explanation-${path}`;
+          explanationDiv.id = `explanation-${path.replace(/\./g, '-')}`;
           explanationDiv.dataset.path = path;
           
           const propertyName = document.createElement('span');
@@ -191,7 +200,12 @@
           explanationDiv.appendChild(propertyName);
           explanationDiv.appendChild(document.createTextNode(defaultExplanations[path]));
           
-          explanationsContainer.appendChild(explanationDiv);
+          // Alternate between left and right containers
+          if (index % 2 === 0) {
+            leftContainer.appendChild(explanationDiv);
+          } else {
+            rightContainer.appendChild(explanationDiv);
+          }
         }
       });
     }
@@ -234,10 +248,19 @@
           line.className = 'line';
           
           // Calculate positions relative to the container
-          const startX = jsonRect.right - containerRect.left;
-          const startY = jsonRect.top + (jsonRect.height / 2) - containerRect.top;
-          const endX = explRect.left - containerRect.left;
-          const endY = explRect.top + (explRect.height / 2) - containerRect.top;
+          const isLeftExplanation = explanation.parentElement.id === 'explanationsLeftContainer';
+          let startX, endX;
+          
+          if (isLeftExplanation) {
+            startX = explRect.right - containerRect.left;
+            endX = jsonRect.left - containerRect.left;
+          } else {
+            startX = jsonRect.right - containerRect.left;
+            endX = explRect.left - containerRect.left;
+          }
+          
+          const startY = isLeftExplanation ? explRect.top + (explRect.height / 2) - containerRect.top : jsonRect.top + (jsonRect.height / 2) - containerRect.top;
+          const endY = isLeftExplanation ? jsonRect.top + (jsonRect.height / 2) - containerRect.top : explRect.top + (explRect.height / 2) - containerRect.top;
           
           // Set line properties
           const length = Math.sqrt(Math.pow(endX - startX, 2) + Math.pow(endY - startY, 2));
